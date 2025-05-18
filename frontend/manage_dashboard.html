@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Instructor Management - APTT</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .section { margin-top: 2rem; }
+    .section h3 { color: #38bdf8; margin-bottom: 0.5rem; }
+    .section-controls {
+      display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;
+    }
+    .section-controls input {
+      padding: 0.4rem 0.6rem;
+      border-radius: 4px;
+      border: none;
+      background-color: #1e293b;
+      color: #fff;
+    }
+    .section-controls button {
+      background-color: #38bdf8;
+      color: #0f172a;
+      border: none;
+      padding: 0.5rem 0.8rem;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .card-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .card {
+      background-color: #1e293b;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      width: 260px;
+      transition: transform 0.2s;
+      cursor: pointer;
+    }
+    .card:hover { transform: scale(1.02); }
+    .card a {
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0,0,0,0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background-color: #1e293b;
+      padding: 2rem;
+      border-radius: 8px;
+      max-width: 400px;
+      width: 100%;
+    }
+    .modal-content input,
+    .modal-content textarea,
+    .modal-content select {
+      width: 100%;
+      margin-bottom: 1rem;
+      padding: 0.5rem;
+      background-color: #0f172a;
+      border: 1px solid #334155;
+      color: white;
+      border-radius: 4px;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <img src="assets/APTT_Logo.png" alt="APTT Logo" class="logo" onclick="window.location.href='dashboard.html'" />
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </header>
+
+  <main class="container">
+    <h2>Instructor Management Panel</h2>
+
+    <div class="section">
+      <h3>Your Courses</h3>
+      <div class="section-controls">
+        <input type="text" id="search-courses" placeholder="Search courses..." oninput="filterCards('course-list', this.value)">
+        <button onclick="showCourseModal()">+ Create Course</button>
+      </div>
+      <div id="course-list" class="card-list">Loading...</div>
+    </div>
+
+    <div class="section">
+      <h3>Your Exercise Collections</h3>
+      <div class="section-controls">
+        <input type="text" id="search-collections" placeholder="Search collections..." oninput="filterCards('collection-list', this.value)">
+        <button onclick="showCollectionModal()">+ Create Collection</button>
+      </div>
+      <div id="collection-list" class="card-list">Loading...</div>
+    </div>
+
+    <div class="section">
+      <h3>Your Exercises</h3>
+      <div class="section-controls">
+        <input type="text" id="search-exercises" placeholder="Search exercises..." oninput="filterCards('exercise-list', this.value)">
+        <button onclick="window.location.href='create_exercise.html'">+ Create Exercise</button>
+      </div>
+      <div id="exercise-list" class="card-list">Loading...</div>
+    </div>
+  </main>
+
+  <!-- Course Modal -->
+  <div class="modal hidden" id="course-modal">
+    <div class="modal-content">
+      <h3>Create New Course</h3>
+      <input type="text" id="course-title" placeholder="Title" />
+      <textarea id="course-description" placeholder="Description"></textarea>
+      <label>Start Date</label>
+      <input type="date" id="start-date" />
+      <label>End Date (optional)</label>
+      <input type="date" id="end-date" />
+      <label>Public</label>
+      <select id="course-public">
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+      <div class="modal-actions">
+        <button onclick="hideCourseModal()">Cancel</button>
+        <button onclick="submitCourse()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Collection Modal -->
+  <div id="collection-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Create Collection</h3>
+      <input type="text" id="collection-title" placeholder="Title" />
+      <textarea id="collection-description" placeholder="Description"></textarea>
+
+      <label for="exercise-filter">Add Exercises:</label>
+      <input type="text" id="exercise-filter" placeholder="Filter exercises..." oninput="filterExerciseList()">
+
+      <div id="exercise-options" style="max-height:150px; overflow-y:auto; border:1px solid #334155; padding:0.5rem; margin-bottom:1rem"></div>
+
+      <div class="modal-actions">
+        <button onclick="hideCollectionModal()">Cancel</button>
+        <button onclick="submitCollection()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem("token");
+    if (!token) window.location.href = "login.html";
+
+    let allExercises = [];
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    }
+
+    function fetchAndRender(endpoint, containerId, getLink) {
+      fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } })
+        .then(res => res.json())
+        .then(items => {
+          const container = document.getElementById(containerId);
+          container.innerHTML = "";
+          if (!items.length) {
+            container.innerHTML = "<p>No items found.</p>";
+            return;
+          }
+          items.forEach(item => {
+            const card = document.createElement("div");
+            card.className = "card";
+            card.dataset.name = (item.name || item.title).toLowerCase();
+            card.innerHTML = `<a href="${getLink(item)}">${item.name || item.title}</a>`;
+            container.appendChild(card);
+          });
+          if (containerId === "exercise-list") {
+            allExercises = items;
+            renderExerciseOptions(allExercises);
+          }
+        });
+    }
+
+    function filterCards(containerId, searchTerm) {
+      const cards = document.getElementById(containerId).querySelectorAll(".card");
+      const term = searchTerm.toLowerCase();
+      cards.forEach(card => {
+        card.style.display = card.dataset.name.includes(term) ? "block" : "none";
+      });
+    }
+
+    function showCourseModal() {
+      document.getElementById("course-modal").classList.remove("hidden");
+    }
+
+    function hideCourseModal() {
+      document.getElementById("course-modal").classList.add("hidden");
+    }
+
+    function submitCourse() {
+      const name = document.getElementById("course-title").value;
+      const description = document.getElementById("course-description").value;
+      const start_date = document.getElementById("start-date").value;
+      const end_date = document.getElementById("end-date").value;
+      const is_public = document.getElementById("course-public").value === "true";
+
+      if (!name || !start_date) {
+        alert("Title and start date are required.");
+        return;
+      }
+
+      fetch("http://localhost:8000/api/courses/", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ name, description, start_date, end_date: end_date || null, is_public })
+      })
+      .then(res => res.json())
+      .then(() => {
+        hideCourseModal();
+        fetchAndRender("http://localhost:8000/api/courses/", "course-list", c => `course_manage.html?id=${c.id}`);
+      });
+    }
+
+    function showCollectionModal() {
+      document.getElementById("collection-modal").classList.remove("hidden");
+    }
+
+    function hideCollectionModal() {
+      document.getElementById("collection-modal").classList.add("hidden");
+    }
+
+    function renderExerciseOptions(exercises) {
+      const container = document.getElementById("exercise-options");
+      if (!container) return;
+      container.innerHTML = "";
+      exercises.forEach(ex => {
+        const label = document.createElement("label");
+        label.style.display = "block";
+        label.innerHTML = `<input type="checkbox" value="${ex.id}" /> ${ex.title}`;
+        container.appendChild(label);
+      });
+    }
+
+    function filterExerciseList() {
+      const term = document.getElementById("exercise-filter").value.toLowerCase();
+      const filtered = allExercises.filter(ex => ex.title.toLowerCase().includes(term));
+      renderExerciseOptions(filtered);
+    }
+
+    function submitCollection() {
+      const title = document.getElementById("collection-title").value;
+      const description = document.getElementById("collection-description").value;
+      const selected = Array.from(document.querySelectorAll("#exercise-options input:checked")).map(cb => parseInt(cb.value));
+
+      if (!title) {
+        alert("Collection title is required.");
+        return;
+      }
+
+      fetch("http://localhost:8000/api/collections/", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ title, description, exercises: selected })
+      })
+      .then(res => res.json())
+      .then(() => {
+        hideCollectionModal();
+        fetchAndRender("http://localhost:8000/api/collections/", "collection-list", c => `collection_manage.html?id=${c.id}`);
+      });
+    }
+
+    fetchAndRender("http://localhost:8000/api/courses/", "course-list", c => `course_manage.html?id=${c.id}`);
+    fetchAndRender("http://localhost:8000/api/collections/", "collection-list", c => `collection_manage.html?id=${c.id}`);
+    fetchAndRender("http://localhost:8000/api/exercises/", "exercise-list", e => `exercise_manage.html?id=${e.id}`);
+  </script>
+</body>
+</html>

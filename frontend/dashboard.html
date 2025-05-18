@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard - APTT</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- Navbar -->
+  <header class="navbar">
+    <img src="assets/APTT_Logo.png" alt="APTT Logo" class="logo" onclick="window.location.href='dashboard.html'" />
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </header>
+
+  <main class="dashboard">
+    <h2>Welcome, <span id="user-name">Loading...</span></h2>
+
+    <div class="card-container">
+      <div class="card" id="progress-card" onclick="window.location.href='tracking.html'">
+        <h3>Progress</h3>
+        <p>View your past submissions, feedback and learning progress.</p>
+      </div>
+
+      <div class="card" id="create-card" style="display:none" onclick="window.location.href='create_exercise.html'">
+        <h3>Create Exercise</h3>
+        <p>Instructors can upload and manage exercises for students.</p>
+      </div>
+    </div>
+
+    <section class="enrolled-courses">
+      <h3>Your Enrolled Courses</h3>
+      <ul id="course-list"></ul>
+      <p id="no-courses" style="display:none">No courses yet. <a href="courses.html">+ Enroll in a course</a></p>
+    </section>
+  </main>
+
+  <script>
+    const usernameEl = document.getElementById("user-name");
+    const createCard = document.getElementById("create-card");
+    const courseList = document.getElementById("course-list");
+    const noCoursesMsg = document.getElementById("no-courses");
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      window.location.href = "login.html";
+    }
+
+    fetch("http://localhost:8000/api/users/me/", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+      usernameEl.textContent = data.username;
+      if (data.is_staff || data.role === "instructor") {
+        createCard.style.display = "block";
+      }
+
+      fetch("http://localhost:8000/api/courses/?enrolled=true", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(courses => {
+        if (courses.length === 0) {
+          noCoursesMsg.style.display = "block";
+        } else {
+          courses.forEach(course => {
+            const li = document.createElement("li");
+            const link = document.createElement("a");
+            link.href = `course.html?id=${course.id}`;
+            link.textContent = course.name;
+            li.appendChild(link);
+            courseList.appendChild(li);
+          });
+        }
+      });
+    })
+    .catch(() => {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    });
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    }
+  </script>
+</body>
+</html>

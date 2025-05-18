@@ -1,0 +1,197 @@
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #021526;
+  color: #E2E2B6;
+}
+
+.navbar {
+  width: 100%;
+  background-color: #03346E;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 2rem;
+  box-sizing: border-box;
+}
+
+.navbar .logo {
+  height: 40px;
+  cursor: pointer;
+}
+
+.logout-btn {
+  background-color: #6EACDA;
+  color: #021526;
+  font-weight: bold;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.nav-links .btn {
+  margin-left: 1rem;
+  text-decoration: none;
+  background-color: #6EACDA;
+  padding: 0.5rem 1rem;
+  color: #021526;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.btn-secondary {
+  background-color: #E2E2B6;
+  color: #021526;
+}
+
+.hero {
+  text-align: center;
+  margin: 4rem 1rem;
+  padding: 2rem;
+}
+
+.hero h1 {
+  font-size: 2.5rem;
+  color: #6EACDA;
+}
+
+.hero p {
+  font-size: 1.1rem;
+  max-width: 600px;
+  margin: 1rem auto;
+}
+
+.footer {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.9rem;
+  background-color: #03346E;
+}
+
+.auth-container {
+  max-width: 400px;
+  margin: 5rem auto;
+  padding: 2rem;
+  background: #03346E;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  text-align: center;
+}
+
+.auth-container h2 {
+  color: #6EACDA;
+  margin-bottom: 1rem;
+}
+
+.auth-container input {
+  display: block;
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 4px;
+}
+
+.btn {
+  width: 100%;
+  background: #6EACDA;
+  color: #021526;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-google {
+  background: #ea4335;
+  color: white;
+  margin-top: 1rem;
+}
+
+.divider {
+  margin: 1rem 0;
+  color: #E2E2B6;
+}
+
+.dashboard {
+  max-width: 900px;
+  margin: 2rem auto;
+  text-align: center;
+}
+
+.card-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.card {
+  background-color: #03346E;
+  padding: 1.5rem;
+  border-radius: 8px;
+  width: 260px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: transform 0.2s;
+  cursor: pointer;
+}
+
+.card:hover {
+  transform: scale(1.03);
+}
+
+.card h3 {
+  color: #6EACDA;
+  margin-bottom: 0.5rem;
+}
+
+.card p {
+  font-size: 0.9rem;
+  color: #E2E2B6;
+}
+
+.error-box {
+  margin-top: 1rem;
+  color: #ef4444;
+  font-size: 0.9rem;
+}
+
+.enrolled-courses {
+  max-width: 600px;
+  margin: 2rem auto;
+  background: #03346E;
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.enrolled-courses h3 {
+  color: #6EACDA;
+  margin-bottom: 1rem;
+}
+
+.enrolled-courses ul {
+  list-style: none;
+  padding: 0;
+}
+
+.enrolled-courses li {
+  margin-bottom: 0.5rem;
+}
+
+.enrolled-courses a {
+  color: #6EACDA;
+  text-decoration: none;
+}
+
+.enrolled-courses a:hover {
+  text-decoration: underline;
+}

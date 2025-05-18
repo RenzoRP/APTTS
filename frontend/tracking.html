@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tracking - APTT</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .tracking-table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #1e293b;
+      margin-top: 2rem;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .tracking-table th,
+    .tracking-table td {
+      padding: 1rem;
+      border-bottom: 1px solid #334155;
+      text-align: left;
+    }
+    .tracking-table th {
+      background-color: #0f172a;
+      color: #38bdf8;
+    }
+    .tracking-table tr:hover {
+      background-color: #334155;
+    }
+    .status-pass {
+      color: #22c55e;
+      font-weight: bold;
+    }
+    .status-fail {
+      color: #ef4444;
+      font-weight: bold;
+    }
+    .submission-list {
+      display: none;
+      background-color: #0f172a;
+      padding: 1rem;
+      border-bottom: 1px solid #334155;
+    }
+    .submission-list ul {
+      list-style: none;
+      padding: 0;
+      margin: 0.5rem 0 0 0;
+    }
+    .submission-list li {
+      margin-bottom: 0.3rem;
+    }
+    .submission-list a {
+      color: #93c5fd;
+      text-decoration: none;
+    }
+    .submission-list a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <img src="assets/APTT_Logo.png" alt="APTT Logo" class="logo" onclick="window.location.href='dashboard.html'" />
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </header>
+
+  <main class="container">
+    <h2>Your Submission History</h2>
+    <table class="tracking-table">
+      <thead>
+        <tr>
+          <th>Exercise</th>
+          <th>Status</th>
+          <th>Attempts</th>
+          <th>Last Submission</th>
+        </tr>
+      </thead>
+      <tbody id="tracking-body">
+        <tr><td colspan="4">Loading...</td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <script>
+    const token = localStorage.getItem("token");
+    if (!token) window.location.href = "login.html";
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    }
+
+    fetch("http://localhost:8000/api/tracking/history/", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+      const tbody = document.getElementById("tracking-body");
+      tbody.innerHTML = "";
+
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="4">No submissions found.</td></tr>';
+        return;
+      }
+
+      // Agrupar por ejercicio
+      const grouped = {};
+      data.forEach(s => {
+          const eid = s.exercise_id;
+          if (!grouped[eid]) grouped[eid] = [];
+          grouped[eid].push(s);
+        });
+
+      Object.values(grouped).forEach(submissions => {
+        // Ordenar por fecha (más reciente primero)
+        submissions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const latest = submissions[0];
+
+        const tr = document.createElement("tr");
+        tr.style.cursor = "pointer";
+        tr.onclick = () => {
+          const list = document.getElementById(`subs-${latest.exercise_id}`);
+          list.style.display = list.style.display === "none" ? "block" : "none";
+        };
+
+        tr.innerHTML = `
+          <td><a href="exercise.html?id=${latest.exercise_id}" onclick="event.stopPropagation()">${latest.exercise_title}</a></td>
+          <td class="${latest.passed ? 'status-pass' : 'status-fail'}">${latest.passed ? 'Passed' : 'Failed'}</td>
+          <td>${submissions.length}</td>
+          <td>${new Date(latest.timestamp).toLocaleString()}</td>
+        `;
+        tbody.appendChild(tr);
+
+        // Lista de todas las submissions del ejercicio
+        const detailRow = document.createElement("tr");
+        const detailCell = document.createElement("td");
+        detailCell.colSpan = 4;
+        const listDiv = document.createElement("div");
+        listDiv.className = "submission-list";
+        listDiv.id = `subs-${latest.exercise_id}`;
+
+        const ul = document.createElement("ul");
+        submissions.forEach(sub => {
+          const li = document.createElement("li");
+          li.innerHTML = `
+            <a href="submission.html?id=${sub.submission_id}">
+              ${sub.passed ? "✅" : "❌"} ${new Date(sub.timestamp).toLocaleString()}
+            </a>
+          `;
+          ul.appendChild(li);
+        });
+
+        listDiv.appendChild(ul);
+        detailCell.appendChild(listDiv);
+        detailRow.appendChild(detailCell);
+        tbody.appendChild(detailRow);
+      });
+    });
+  </script>
+</body>
+</html>

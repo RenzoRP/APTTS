@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Course Details - APTT</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- Navbar -->
+  <header class="navbar">
+    <img src="assets/APTT_Logo.png" alt="APTT Logo" class="logo" onclick="window.location.href='dashboard.html'" />
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </header>
+
+  <main class="container">
+    <div class="section-box">
+      <h2 id="course-name">Loading...</h2>
+      <p id="course-description"></p>
+    </div>
+
+    <div class="section-box collections-box">
+      <h3>Exercise Collections</h3>
+      <ul id="collections-list"></ul>
+    </div>
+  </main>
+
+  <script>
+    const token = localStorage.getItem("token");
+    if (!token) window.location.href = "login.html";
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const courseId = urlParams.get("id");
+
+    fetch(`http://localhost:8000/api/courses/${courseId}/`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(course => {
+      document.getElementById("course-name").textContent = course.name;
+      document.getElementById("course-description").textContent = course.description;
+    });
+
+    fetch("http://localhost:8000/api/collections/?course=" + courseId, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(collections => {
+      const list = document.getElementById("collections-list");
+      if (collections.length === 0) {
+        list.innerHTML = '<li>No collections available.</li>';
+      } else {
+        collections.forEach(c => {
+          const li = document.createElement("li");
+          li.innerHTML = `<a href="collection.html?id=${c.id}">${c.title}</a>`;
+          list.appendChild(li);
+        });
+      }
+    });
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    }
+  </script>
+</body>
+</html>

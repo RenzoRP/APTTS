@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Submission Details - APTT</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .info-box {
+      background-color: #1e293b;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+    }
+
+    .info-box h3 {
+      color: #38bdf8;
+      margin-bottom: 0.5rem;
+    }
+
+    pre {
+      background-color: #0f172a;
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      color: #f1f5f9;
+    }
+
+    .feedback-entry {
+      background-color: #334155;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .feedback-entry:hover {
+      background-color: #475569;
+    }
+
+    .feedback-content {
+      display: none;
+      margin-top: 0.5rem;
+      background-color: #1e293b;
+      padding: 0.75rem;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <img src="assets/APTT_Logo.png" class="logo" onclick="window.location.href='dashboard.html'" />
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </header>
+
+  <main class="container">
+    <div class="info-box">
+      <h3 id="exercise-title">Exercise</h3>
+      <p><strong>User:</strong> <span id="username"></span></p>
+      <p><strong>Attempt:</strong> <span id="attempt"></span></p>
+      <p><strong>Score:</strong> <span id="score"></span></p>
+      <p><strong>Timestamp:</strong> <span id="timestamp"></span></p>
+    </div>
+
+    <div class="info-box">
+      <h3>Submitted Code</h3>
+      <pre id="code-content"></pre>
+    </div>
+
+    <div class="info-box">
+      <h3>Feedback</h3>
+      <div id="feedback-list"></div>
+    </div>
+  </main>
+
+  <script>
+    const token = localStorage.getItem("token");
+    if (!token) window.location.href = "login.html";
+
+    const submissionId = new URLSearchParams(window.location.search).get("id");
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    };
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    }
+
+    function toggleContent(id) {
+      const el = document.getElementById(id);
+      el.style.display = el.style.display === "none" ? "block" : "none";
+    }
+
+    fetch(`http://localhost:8000/api/submissions/${submissionId}/`, { headers })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("exercise-title").textContent = data.exercise_title || "(Untitled)";
+        document.getElementById("username").textContent = data.username || "(Unknown)";
+        document.getElementById("attempt").textContent = data.attempt_number;
+        document.getElementById("score").textContent = data.score;
+        document.getElementById("timestamp").textContent = new Date(data.timestamp).toLocaleString();
+        document.getElementById("code-content").textContent = data.code;
+      });
+
+    fetch(`http://localhost:8000/api/feedback/?submission=${submissionId}`, { headers })
+      .then(res => res.json())
+      .then(feedbacks => {
+        const list = document.getElementById("feedback-list");
+        if (feedbacks.length === 0) {
+          list.innerHTML = "<p>No feedback available for this submission.</p>";
+        } else {
+          feedbacks.forEach((fb, i) => {
+            const entry = document.createElement("div");
+            entry.className = "feedback-entry";
+            entry.innerHTML = `
+              <strong>Type:</strong> ${fb.type} | 
+              <strong>Date:</strong> ${new Date(fb.generated_at).toLocaleString()}
+              <div class="feedback-content" id="fb-${i}">${fb.content}</div>
+            `;
+            entry.addEventListener("click", () => toggleContent(`fb-${i}`));
+            list.appendChild(entry);
+          });
+        }
+      });
+  </script>
+</body>
+</html>

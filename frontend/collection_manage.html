@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Manage Collection - APTT</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .section {
+      margin-top: 2rem;
+    }
+    .section h3 {
+      color: #38bdf8;
+      margin-bottom: 1rem;
+    }
+    .item-list {
+      background: #1e293b;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    .item-list ul {
+      list-style: none;
+      padding: 0;
+    }
+    .item-list li {
+      padding: 0.5rem 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #334155;
+    }
+    .item-list li:last-child {
+      border-bottom: none;
+    }
+    .item-list a {
+      color: #93c5fd;
+      text-decoration: none;
+    }
+    .item-list button {
+      background-color: #ef4444;
+      color: white;
+      border: none;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-add {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      background-color: #38bdf8;
+      color: #0f172a;
+      border: none;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0,0,0,0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background-color: #1e293b;
+      padding: 2rem;
+      border-radius: 8px;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    .modal-content input[type="text"] {
+      width: 100%;
+      margin-bottom: 1rem;
+      padding: 0.5rem;
+      background-color: #0f172a;
+      border: 1px solid #334155;
+      color: white;
+      border-radius: 4px;
+    }
+
+    .modal-list {
+      max-height: 200px;
+      overflow-y: auto;
+      background-color: #0f172a;
+      padding: 1rem;
+      border: 1px solid #334155;
+      border-radius: 4px;
+    }
+
+    .modal-list label {
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    .modal-actions {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <img src="assets/APTT_Logo.png" alt="APTT Logo" class="logo" onclick="window.location.href='dashboard.html'" />
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </header>
+
+  <main class="container">
+    <h2 id="collection-title">Manage Collection</h2>
+
+    <div class="section">
+      <h3>Exercises in this Collection</h3>
+      <div class="item-list">
+        <ul id="exercise-list"></ul>
+      </div>
+      <button class="btn-add" onclick="showModal()">+ Add Exercises</button>
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div id="exercise-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Add Exercises to Collection</h3>
+      <input type="text" id="exercise-filter" placeholder="Filter exercises..." oninput="filterExerciseList()">
+      <div id="exercise-options" class="modal-list"></div>
+      <div class="modal-actions">
+        <button onclick="hideModal()">Cancel</button>
+        <button onclick="submitSelectedExercises()">Add Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem("token");
+    if (!token) window.location.href = "login.html";
+    const collectionId = new URLSearchParams(window.location.search).get("id");
+    let allExercises = [];
+    let exercisesInCollection = [];
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    }
+
+    function renderExercises() {
+      fetch(`http://localhost:8000/api/collections/${collectionId}/exercises/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        exercisesInCollection = data;
+        const list = document.getElementById("exercise-list");
+        list.innerHTML = "";
+        data.forEach(ex => {
+          const li = document.createElement("li");
+          li.innerHTML = `
+            <a href="manage_exercise.html?id=${ex.id}">${ex.title}</a>
+            <button onclick="removeExercise(${ex.id})">Remove</button>`;
+          list.appendChild(li);
+        });
+        renderExerciseOptions();
+      });
+    }
+
+    function loadAllExercises() {
+      fetch("http://localhost:8000/api/exercises/", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        allExercises = data;
+        renderExercises();
+      });
+    }
+
+    function renderExerciseOptions() {
+      const container = document.getElementById("exercise-options");
+      container.innerHTML = "";
+      const filter = document.getElementById("exercise-filter").value.toLowerCase();
+      allExercises.forEach(ex => {
+        const alreadyInCollection = exercisesInCollection.some(e => e.id === ex.id);
+        if (!alreadyInCollection && ex.title.toLowerCase().includes(filter)) {
+          const label = document.createElement("label");
+          label.innerHTML = `<input type="checkbox" value="${ex.id}" /> ${ex.title}`;
+          container.appendChild(label);
+        }
+      });
+    }
+
+    function showModal() {
+      document.getElementById("exercise-modal").classList.remove("hidden");
+      renderExerciseOptions();
+    }
+
+    function hideModal() {
+      document.getElementById("exercise-modal").classList.add("hidden");
+    }
+
+    function submitSelectedExercises() {
+      const checkboxes = document.querySelectorAll("#exercise-options input[type='checkbox']:checked");
+      const selectedIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+      Promise.all(selectedIds.map(id =>
+        fetch(`http://localhost:8000/api/exercises/${id}/add_to_collection/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ collection_id: collectionId })
+        })
+      )).then(() => {
+        hideModal();
+        renderExercises();
+      });
+    }
+
+    fetch(`http://localhost:8000/api/collections/${collectionId}/`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("collection-title").textContent = `Manage Collection: ${data.title}`;
+    });
+
+    loadAllExercises();
+  </script>
+</body>
+</html>

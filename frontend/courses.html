@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Courses - APTT</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="navbar">
+    <div class="logo">APTT</div>
+    <div class="nav-links">
+      <a href="dashboard.html" class="btn btn-secondary">Dashboard</a>
+      <button class="btn btn-secondary" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2>Available Courses</h2>
+    <div id="course-list" class="card-container"></div>
+  </main>
+
+  <script>
+    const token = localStorage.getItem("token");
+    if (!token) window.location.href = "login.html";
+
+    fetch("http://localhost:8000/api/courses/", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(courses => {
+      const list = document.getElementById("course-list");
+      if (courses.length === 0) {
+        list.innerHTML = '<p>No courses available.</p>';
+      } else {
+        courses.forEach(course => {
+          const card = document.createElement("div");
+          card.className = "card";
+          card.innerHTML = `
+            <h3>${course.name}</h3>
+            <p>${course.description}</p>
+            <button onclick="window.location.href='course.html?id=${course.id}'" class="btn">View Course</button>
+          `;
+          list.appendChild(card);
+        });
+      }
+    });
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    }
+  </script>
+</body>
+</html>

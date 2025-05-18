@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Manage Course - APTT</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .section { margin-top: 2rem; }
+    .section h3 { color: #38bdf8; margin-bottom: 1rem; }
+    .item-list {
+      background: #1e293b; padding: 1rem;
+      border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    .item-list ul { list-style: none; padding: 0; }
+    .item-list li {
+      padding: 0.5rem 0; display: flex;
+      justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #334155;
+    }
+    .item-list li:last-child { border-bottom: none; }
+    .item-list a { color: #93c5fd; text-decoration: none; }
+    .item-list button {
+      background-color: #ef4444; color: white;
+      border: none; padding: 0.3rem 0.6rem;
+      border-radius: 4px; cursor: pointer;
+    }
+    .btn-add {
+      margin-top: 1rem; padding: 0.5rem 1rem;
+      background-color: #38bdf8; color: #0f172a;
+      border: none; border-radius: 5px; font-weight: bold; cursor: pointer;
+    }
+    .modal {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0,0,0,0.7); display: flex;
+      justify-content: center; align-items: center; z-index: 1000;
+    }
+    .modal-content {
+      background-color: #1e293b; padding: 2rem;
+      border-radius: 8px; max-width: 500px; width: 100%;
+    }
+    .modal-content input[type="text"] {
+      width: 100%; margin-bottom: 1rem; padding: 0.5rem;
+      background-color: #0f172a; border: 1px solid #334155;
+      color: white; border-radius: 4px;
+    }
+    .modal-list {
+      max-height: 200px; overflow-y: auto;
+      background-color: #0f172a; padding: 1rem;
+      border: 1px solid #334155; border-radius: 4px;
+    }
+    .modal-list label { display: block; margin-bottom: 0.5rem; }
+    .modal-actions {
+      margin-top: 1rem; display: flex;
+      justify-content: flex-end; gap: 1rem;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <img src="assets/APTT_Logo.png" alt="APTT Logo" class="logo" onclick="window.location.href='dashboard.html'" />
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </header>
+
+  <main class="container">
+    <h2 id="course-title">Manage Course</h2>
+
+    <div class="section">
+      <h3>Pending Enrollment Requests</h3>
+      <div class="item-list">
+        <ul id="pending-list"></ul>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Students Enrolled</h3>
+      <input type="text" id="student-search" placeholder="Search students..." oninput="filterStudents()" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: none; margin-bottom: 1rem;" />
+      <div class="item-list">
+        <ul id="student-list"></ul>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Exercise Collections in Course</h3>
+      <input type="text" id="collection-search" placeholder="Search collections..." oninput="filterCollections()" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: none; margin-bottom: 1rem;" />
+      <div class="item-list">
+        <ul id="collection-list"></ul>
+      </div>
+      <button class="btn-add" onclick="showCollectionModal()">+ Add Collections</button>
+    </div>
+  </main>
+
+  <div id="collection-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Add Collections to Course</h3>
+      <input type="text" id="collection-filter" placeholder="Filter collections..." oninput="renderCollectionOptions()" />
+      <div id="collection-options" class="modal-list"></div>
+      <div class="modal-actions">
+        <button onclick="hideCollectionModal()">Cancel</button>
+        <button onclick="submitSelectedCollections()">Add Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem("token");
+    const courseId = new URLSearchParams(window.location.search).get("id");
+    if (!token) window.location.href = "login.html";
+
+    let allStudents = [], allCollections = [], courseCollections = [], pendingUsers = [];
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    }
+
+    function renderStudents() {
+      fetch(`http://localhost:8000/api/courses/${courseId}/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(course => {
+        document.getElementById("course-title").textContent = `Manage Course: ${course.name}`;
+        allStudents = course.students || [];
+        filterStudents();
+      });
+    }
+
+    function filterStudents() {
+      const query = document.getElementById("student-search").value.toLowerCase();
+      const list = document.getElementById("student-list");
+      list.innerHTML = "";
+      allStudents.filter(user => user.username.toLowerCase().includes(query)).forEach(user => {
+        const li = document.createElement("li");
+        li.innerHTML = `<a href="student_activity.html?course=${courseId}&user=${user.id}">${user.username}</a><button onclick="removeStudent(${user.id})">Remove</button>`;
+        list.appendChild(li);
+      });
+    }
+
+    function renderPending() {
+      const list = document.getElementById("pending-list");
+      list.innerHTML = "";
+      pendingUsers.forEach(user => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <span>${user.username}</span>
+          <div>
+            <button onclick="approveRequest(${user.id})">✅</button>
+            <button onclick="rejectRequest(${user.id})">❌</button>
+          </div>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    function renderCollections() {
+      fetch(`http://localhost:8000/api/collections/by_course/?course_id=${courseId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        courseCollections = data;
+        filterCollections();
+      });
+    }
+
+    function filterCollections() {
+      const query = document.getElementById("collection-search").value.toLowerCase();
+      const list = document.getElementById("collection-list");
+      list.innerHTML = "";
+      courseCollections.filter(c => c.title.toLowerCase().includes(query)).forEach(c => {
+        const li = document.createElement("li");
+        li.innerHTML = `<a href="collection_activity.html?course=${courseId}&collection=${c.id}">${c.title}</a><button onclick="removeCollection(${c.id})">Remove</button>`;
+        list.appendChild(li);
+      });
+    }
+
+    function showCollectionModal() {
+      document.getElementById("collection-modal").classList.remove("hidden");
+      renderCollectionOptions();
+    }
+
+    function hideCollectionModal() {
+      document.getElementById("collection-modal").classList.add("hidden");
+    }
+
+    function renderCollectionOptions() {
+      const container = document.getElementById("collection-options");
+      const filter = document.getElementById("collection-filter").value.toLowerCase();
+      container.innerHTML = "";
+      allCollections.forEach(c => {
+        const alreadyInCourse = courseCollections.some(col => col.id === c.id);
+        if (!alreadyInCourse && c.title.toLowerCase().includes(filter)) {
+          const label = document.createElement("label");
+          label.innerHTML = `<input type="checkbox" value="${c.id}"> ${c.title}`;
+          container.appendChild(label);
+        }
+      });
+    }
+
+    function submitSelectedCollections() {
+      const selected = Array.from(document.querySelectorAll("#collection-options input:checked")).map(cb => parseInt(cb.value));
+      Promise.all(selected.map(id =>
+        fetch(`http://localhost:8000/api/collections/${id}/add_course/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ course_id: courseId })
+        })
+      )).then(() => {
+        hideCollectionModal();
+        renderCollections();
+      });
+    }
+
+    function removeCollection(id) {
+      fetch(`http://localhost:8000/api/collections/${id}/remove_course/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ course_id: courseId })
+      }).then(() => renderCollections());
+    }
+
+    function removeStudent(userId) {
+      fetch(`http://localhost:8000/api/courses/${courseId}/remove_student/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ user_id: userId })
+      }).then(() => renderStudents());
+    }
+
+    function approveRequest(userId) {
+      fetch(`http://localhost:8000/api/courses/${courseId}/approve/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ user_id: userId })
+      }).then(() => {
+        loadPendingRequests();
+        renderStudents();
+      });
+    }
+
+    function rejectRequest(userId) {
+      fetch(`http://localhost:8000/api/courses/${courseId}/reject/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ user_id: userId })
+      }).then(() => loadPendingRequests());
+    }
+
+    function loadPendingRequests() {
+      fetch(`http://localhost:8000/api/courses/${courseId}/pending/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        pendingUsers = data;
+        renderPending();
+      });
+    }
+
+    function loadAllCollections() {
+      fetch("http://localhost:8000/api/collections/", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => { allCollections = data; });
+    }
+
+    loadPendingRequests();
+    renderStudents();
+    renderCollections();
+    loadAllCollections();
+  </script>
+</body>
+</html>

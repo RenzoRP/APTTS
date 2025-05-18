@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Exercise - APTT</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    .exercise-info {
+      background-color: #1e293b;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+    }
+
+    .editor-box {
+      height: 400px;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .result-box {
+      background-color: #0f172a;
+      padding: 1rem;
+      border-radius: 6px;
+      color: #38bdf8;
+      font-family: monospace;
+    }
+
+    .badge {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      color: #fff;
+    }
+
+    .easy { background-color: #22c55e; }
+    .medium { background-color: #eab308; }
+    .hard { background-color: #ef4444; }
+
+    #validation-warning {
+      color: #ef4444;
+      margin-bottom: 1rem;
+    }
+  </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+</head>
+<body>
+  <header class="navbar">
+    <img src="assets/APTT_Logo.png" alt="APTT Logo" class="logo" onclick="window.location.href='dashboard.html'" />
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </header>
+
+  <main class="container">
+    <div class="exercise-info">
+      <h2 id="exercise-title">Loading...</h2>
+      <p id="exercise-description"></p>
+      <p id="exercise-difficulty"></p>
+      <h4>Test Cases:</h4>
+      <ul id="test-case-list"></ul>
+    </div>
+
+    <div id="editor" class="editor-box"></div>
+    <p id="validation-warning"></p>
+
+    <div class="controls">
+      <button class="btn" onclick="requestHint()">💡 Get Hint</button>
+      <button class="btn btn-secondary" onclick="submitCode()">🚀 Submit</button>
+      <button class="btn" onclick="requestFeedback()">🧠 Get Feedback</button>
+    </div>
+
+    <div class="result-box" id="results">Results will appear here...</div>
+  </main>
+
+  <script>
+    const token = localStorage.getItem("token");
+    if (!token) window.location.href = "login.html";
+
+    const exerciseId = new URLSearchParams(window.location.search).get("id");
+    const headers = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
+    let editorInstance;
+
+    require.config({ paths: { vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs" } });
+    require(["vs/editor/editor.main"], () => {
+      editorInstance = monaco.editor.create(document.getElementById("editor"), {
+        value: "# Write your Python code here\ndef solution():\n    ",
+        language: "python",
+        theme: "vs-dark",
+        automaticLayout: true,
+      });
+    });
+
+    fetch(`http://localhost:8000/api/exercises/${exerciseId}/`, { headers })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("exercise-title").textContent = data.title;
+        document.getElementById("exercise-description").textContent = data.description;
+        const diffBadge = document.createElement("span");
+        diffBadge.className = `badge ${data.difficulty.toLowerCase()}`;
+        diffBadge.textContent = data.difficulty;
+        document.getElementById("exercise-difficulty").appendChild(diffBadge);
+
+        const testList = document.getElementById("test-case-list");
+        data.test_cases.forEach(tc => {
+          const li = document.createElement("li");
+          li.innerHTML = `<strong>Input:</strong> ${tc.input || "(empty)"}<br><strong>Expected Output:</strong> ${tc.expected_output}`;
+          li.style.padding = "0.75rem";
+          li.style.marginBottom = "0.5rem";
+          li.style.borderLeft = "4px solid #38bdf8";
+          li.style.backgroundColor = "#1e293b";
+          li.style.borderRadius = "6px";
+          testList.appendChild(li);
+        });
+      });
+
+    function requestHint() {
+      fetch(`http://localhost:8000/api/feedback/start_hint/`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ exercise_id: exerciseId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("results").textContent = `💡 Hint: ${data.content}`;
+      });
+    }
+
+    function submitCode() {
+      const code = editorInstance.getValue().trim();
+      const warning = document.getElementById("validation-warning");
+      const resultBox = document.getElementById("results");
+
+      if (!code) {
+        warning.textContent = "⚠️ Please write your code before submitting.";
+        resultBox.textContent = "";
+        return;
+      }
+
+      warning.textContent = "";
+      resultBox.textContent = "⏳ Submitting...";
+
+      fetch("http://localhost:8000/api/submissions/", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ exercise: exerciseId, code })
+      })
+        .then(res => res.json().then(data => ({ status: res.status, body: data })))
+        .then(({ status, body }) => {
+          if (status === 400) {
+            if (body.type === "syntax") {
+              warning.textContent = `⚠️ Syntax Error: ${body.error}`;
+              resultBox.textContent = "";
+            } else if (body.type === "runtime") {
+              warning.textContent = `⚠️ Runtime Error: ${body.error}`;
+              resultBox.textContent = "";
+            } else {
+              warning.textContent = "⚠️ Submission failed due to an unknown error.";
+              resultBox.textContent = "";
+            }
+          } else if (status === 201) {
+            resultBox.textContent = body.passed
+              ? "✅ Passed!"
+              : `❌ Failed: ${body.feedback}`;
+          } else {
+            warning.textContent = "⚠️ Unexpected error occurred.";
+            resultBox.textContent = "";
+          }
+        })
+        .catch(err => {
+          warning.textContent = "⚠️ Network or server error.";
+          resultBox.textContent = "";
+          console.error("Submission error:", err);
+        });
+    }
+
+    function requestFeedback() {
+      const code = editorInstance.getValue();
+      fetch(`http://localhost:8000/api/feedback/?type=final&exercise=${exerciseId}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ exercise: exerciseId, type: "final", submission_code: code })
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("results").textContent = `🧠 Feedback: ${data.text}`;
+      });
+    }
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    }
+  </script>
+</body>
+</html>

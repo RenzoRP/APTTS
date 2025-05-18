@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Exercise Collection - APTT</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    .section-box {
+      background-color: #1e293b;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 0 8px rgba(0,0,0,0.3);
+    }
+
+    ul.exercise-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .exercise-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0f172a;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+      border-radius: 6px;
+    }
+
+    .exercise-title a {
+      color: #38bdf8;
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .exercise-title a:hover {
+      text-decoration: underline;
+    }
+
+    .exercise-meta {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .badge {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      color: #fff;
+    }
+
+    .easy { background-color: #22c55e; }
+    .medium { background-color: #eab308; }
+    .hard { background-color: #ef4444; }
+
+    .completed {
+      font-size: 1.2rem;
+      color: #10b981;
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <img src="assets/APTT_Logo.png" alt="APTT Logo" class="logo" onclick="window.location.href='dashboard.html'" />
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </header>
+
+  <main class="container">
+    <div class="section-box">
+      <h2 id="collection-title">Loading...</h2>
+      <p id="collection-description"></p>
+    </div>
+
+    <div class="section-box">
+      <h3>Exercises</h3>
+      <ul id="exercise-list" class="exercise-list"></ul>
+    </div>
+  </main>
+
+  <script>
+    const token = localStorage.getItem("token");
+    if (!token) window.location.href = "login.html";
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const collectionId = urlParams.get("id");
+
+    fetch(`http://localhost:8000/api/collections/${collectionId}/`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(collection => {
+      document.getElementById("collection-title").textContent = collection.title;
+      document.getElementById("collection-description").textContent = collection.description;
+    });
+
+    // Fetch user submissions first
+    let submittedExerciseIds = [];
+    fetch(`http://localhost:8000/api/submissions/`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(submissions => {
+      submittedExerciseIds = submissions.map(s => s.exercise);
+
+      // Then fetch the exercises
+      return fetch(`http://localhost:8000/api/collections/${collectionId}/exercises/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    })
+    .then(res => res.json())
+    .then(exercises => {
+      const list = document.getElementById("exercise-list");
+      if (exercises.length === 0) {
+        list.innerHTML = '<li>No exercises found.</li>';
+      } else {
+        exercises.forEach(ex => {
+          const li = document.createElement("li");
+          li.className = "exercise-item";
+
+          // Difficulty class
+          let difficultyClass = "easy";
+          if (ex.difficulty === "Medium") difficultyClass = "medium";
+          else if (ex.difficulty === "Hard") difficultyClass = "hard";
+
+          // Check if completed
+          const isCompleted = submittedExerciseIds.includes(ex.id);
+          li.innerHTML = `
+            <div class="exercise-title">
+              <a href="exercise.html?id=${ex.id}">${ex.title}</a>
+            </div>
+            <div class="exercise-meta">
+              <span class="badge ${difficultyClass}">${ex.difficulty}</span>
+              ${isCompleted ? '<span class="completed">✓</span>' : ''}
+            </div>
+          `;
+          list.appendChild(li);
+        });
+      }
+    });
+
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "login.html";
+    }
+  </script>
+</body>
+</html>
