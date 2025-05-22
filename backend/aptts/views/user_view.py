@@ -45,7 +45,18 @@ def get_tokens_for_user(user):
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def register(request):
-    serializer = UserSerializer(data=request.data)
+    data = request.data.copy()
+
+    # Autoextraer institución si es un correo .edu
+    email = data.get('email', '')
+    if email.endswith('.edu'):
+        domain_parts = email.split('@')[-1].split('.')
+        # e.g., 'estudiantat.upc.edu' → 'upc'
+        if len(domain_parts) >= 2:
+            institution = domain_parts[-2]
+            data['institution'] = institution.upper()  # o slugify(institution)
+    
+    serializer = UserSerializer(data=data)
     if serializer.is_valid():
         user = serializer.save()
         tokens = get_tokens_for_user(user)

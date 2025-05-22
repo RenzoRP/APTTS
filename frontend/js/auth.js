@@ -1,4 +1,4 @@
-const backendUrl = "http://localhost:8000"; // Replace with your backend URL if deployed
+const backendUrl = "http://localhost:8000"; // Replace with backend URL if deployed
 
 // LOGIN
 const loginForm = document.getElementById("login-form");
@@ -45,7 +45,9 @@ if (registerForm) {
       username: formData.get("username"),
       email: formData.get("email"),
       password: formData.get("password"),
+      role: formData.get("role")
     };
+
     try {
       const response = await fetch(`${backendUrl}/api/auth/register/`, {
         method: "POST",
@@ -61,30 +63,43 @@ if (registerForm) {
       }
     } catch (error) {
       console.error(error);
+      alert("Network error. Try again.");
     }
   });
 }
 
-// GOOGLE LOGIN
-const googleBtn = document.getElementById("google-login");
-if (googleBtn) {
-  googleBtn.addEventListener("click", async () => {
-    const email = prompt("Enter your Google email (mocked)"); // replace with OAuth popup flow later
-    try {
-      const response = await fetch(`${backendUrl}/api/auth/google-login/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem("token", data.access);
-        window.location.href = "dashboard.html";
-      } else {
-        alert("Google login failed: " + (data.error || "Unknown error"));
-      }
-    } catch (err) {
-      console.error(err);
+// GOOGLE LOGIN (OAuth2)
+window.onload = function () {
+  if (window.google) {
+    google.accounts.id.initialize({
+      client_id: "203635622740-3hddsaakshpi9hvqus79otreqq1qv7p6.apps.googleusercontent.com",
+      callback: handleCredentialResponse
+    });
+
+    google.accounts.id.renderButton(
+      document.getElementById("google-login"),
+      { theme: "outline", size: "large" }
+    );
+  }
+};
+
+async function handleCredentialResponse(response) {
+  try {
+    const res = await fetch(`${backendUrl}/api/auth/google-login/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id_token: response.credential })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      localStorage.setItem("token", data.access);
+      window.location.href = "dashboard.html";
+    } else {
+      alert("Google login failed: " + (data.error || "Unknown error"));
     }
-  });
+  } catch (err) {
+    console.error(err);
+    alert("Google login error. Try again.");
+  }
 }

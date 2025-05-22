@@ -5,6 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Course Details - APTT</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    .section-box {
+      background-color: #1e293b;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 0 8px rgba(0,0,0,0.3);
+    }
+
+    ul.collection-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .collection-item {
+      background: #0f172a;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+      border-radius: 6px;
+    }
+
+    .collection-item a {
+      color: #38bdf8;
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .collection-item a:hover {
+      text-decoration: underline;
+    }
+
+    .no-data {
+      color: #94a3b8;
+      font-style: italic;
+    }
+  </style>
 </head>
 <body>
   <!-- Navbar -->
@@ -16,12 +58,12 @@
   <main class="container">
     <div class="section-box">
       <h2 id="course-name">Loading...</h2>
-      <p id="course-description"></p>
+      <p id="course-description" class="no-data">Loading course description...</p>
     </div>
 
-    <div class="section-box collections-box">
+    <div class="section-box">
       <h3>Exercise Collections</h3>
-      <ul id="collections-list"></ul>
+      <ul id="collections-list" class="collection-list"></ul>
     </div>
   </main>
 
@@ -32,6 +74,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const courseId = urlParams.get("id");
 
+    // Load course data
     fetch(`http://localhost:8000/api/courses/${courseId}/`, {
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -41,17 +84,19 @@
       document.getElementById("course-description").textContent = course.description;
     });
 
-    fetch("http://localhost:8000/api/collections/?course=" + courseId, {
+    // Load collections for the course
+    fetch(`http://localhost:8000/api/collections/?courses=${courseId}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     .then(res => res.json())
     .then(collections => {
       const list = document.getElementById("collections-list");
       if (collections.length === 0) {
-        list.innerHTML = '<li>No collections available.</li>';
+        list.innerHTML = '<li class="no-data">No collections available.</li>';
       } else {
         collections.forEach(c => {
           const li = document.createElement("li");
+          li.className = "collection-item";
           li.innerHTML = `<a href="collection.html?id=${c.id}">${c.title}</a>`;
           list.appendChild(li);
         });

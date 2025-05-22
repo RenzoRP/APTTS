@@ -13,9 +13,24 @@ class IsCreatorOrReadOnly(permissions.BasePermission):
         return obj.created_by == request.user
 
 class ExerciseViewSet(viewsets.ModelViewSet):
-    queryset = Exercise.objects.all()
     serializer_class = ExerciseSerializer
     permission_classes = [IsCreatorOrReadOnly]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if not user.is_authenticated:
+            return Exercise.objects.none()
+
+        if user.role == 'instructor':
+            return Exercise.objects.filter(created_by=user)
+
+        if user.role == 'student':
+            return Exercise.objects.filter(
+                in_collections__courses__students=user
+            ).distinct()
+
+        return Exercise.objects.none()
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

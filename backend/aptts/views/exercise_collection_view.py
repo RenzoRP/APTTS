@@ -1,5 +1,6 @@
 from rest_framework import viewsets, permissions, decorators, response, status
 from ..models.exercise_collection import ExerciseCollection
+from django_filters.rest_framework import DjangoFilterBackend
 from ..models.course import Course
 from ..models.exercise import Exercise
 from ..serializers.exercise_collection_serializer import ExerciseCollectionSerializer
@@ -15,9 +16,30 @@ class IsInstructorOrReadOnly(permissions.BasePermission):
         return obj.created_by == request.user
 
 class ExerciseCollectionViewSet(viewsets.ModelViewSet):
-    queryset = ExerciseCollection.objects.all()
     serializer_class = ExerciseCollectionSerializer
-    permission_classes = [IsInstructorOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['courses']
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if not user.is_authenticated:
+            return ExerciseCollection.objects.none()
+
+        if user.role == 'instructor':
+            return ExerciseCollection.objects.filter(created_by=user)
+
+        if user.role == 'student':
+            return ExerciseCollection.objects.filter(
+                courses__students=user
+            ).distinct()
+
+        return ExerciseCollection.objects.none()
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'add_exercise', 'remove_exercise', 'add_course', 'remove_course']:
+            return [permissions.IsAuthenticated(), IsInstructorOrReadOnly()]
+        return [permissions.IsAuthenticated()]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

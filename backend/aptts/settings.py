@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'social_django',
+    'django_extensions',
     'aptts',
     'corsheaders',
 ]

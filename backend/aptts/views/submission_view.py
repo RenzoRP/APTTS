@@ -10,9 +10,26 @@ from aptts.services.code_runner_service import execute_user_code
 import ast
 
 class SubmissionViewSet(viewsets.ModelViewSet):
-    queryset = Submission.objects.all()
     serializer_class = SubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = Submission.objects.all()
+
+        # Only let instructors see submissions to their exercises
+        # And students see only their own
+        if user.role == 'student':
+            qs = qs.filter(user=user)
+        elif user.role == 'instructor':
+            qs = qs.filter(exercise__created_by=user)
+
+        # Apply filtering by exercise ID from query param
+        exercise_id = self.request.query_params.get('exercise')
+        if exercise_id:
+            qs = qs.filter(exercise__id=exercise_id)
+
+        return qs
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -40,7 +57,7 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             input_data = case['input']
             expected_output = str(case['expected_output']).strip()
 
-            output, error = self.run_code_with_timeout(code, input_data)
+            output, error = self.run_code_with_timeout(code, input_data, exercise.print_based)
             if error:
                 return Response({
                     "type": "runtime",
@@ -56,29 +73,21 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         score = round(passed / len(test_cases), 2) if test_cases else 0.0
         feedback_text = "\n".join(feedback_lines)
 
-        # If we reached here, the code passed validation and can be saved
         attempt_count = Submission.objects.filter(user=user, exercise=exercise).count()
         submission = serializer.save(user=user, attempt_number=attempt_count + 1, score=score)
-
-        Feedback.objects.create(
-            submission=submission,
-            content=feedback_text,
-            exercise=exercise,
-            user=user,
-            type='submission_help'
-        )
 
         return Response({
             'message': 'Submission created successfully',
             'score': submission.score,
             'passed': submission.score == 1.0,
-            'feedback': feedback_text
+            'feedback': feedback_text,
+            'submission_id': submission.id,
         }, status=status.HTTP_201_CREATED)
 
-    def run_code_with_timeout(self, code, input_data, timeout=2):
+    def run_code_with_timeout(self, code, input_data, print_based, timeout=2):
         manager = Manager()
         return_dict = manager.dict()
-        process = Process(target=execute_user_code, args=(code, input_data, return_dict))
+        process = Process(target=execute_user_code, args=(code, input_data, print_based, return_dict))
         process.start()
         process.join(timeout)
         if process.is_alive():

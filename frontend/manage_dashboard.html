@@ -230,7 +230,7 @@
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ name, description, start_date, end_date: end_date || null, is_public })
+        body: JSON.stringify({ name, description, start_date, end_date: end_date || null, public: is_public })
       })
       .then(res => res.json())
       .then(() => {

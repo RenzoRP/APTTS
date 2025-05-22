@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Create Exercise - APTT</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css" />
   <style>
     .container {
       max-width: 800px;
@@ -32,18 +32,23 @@
       resize: vertical;
     }
     .test-case-box {
-      display: flex;
-      gap: 1rem;
       margin-bottom: 1rem;
     }
-    .test-case-box input {
-      flex: 1;
+    .test-case-box textarea {
+      font-family: monospace;
+    }
+    .hint {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      background: #0f172a;
+      padding: 1rem;
+      border-radius: 6px;
     }
   </style>
 </head>
 <body>
   <header class="navbar">
-    <img src="assets/APTT_Logo.png" alt="APTT Logo" class="logo" onclick="window.location.href='dashboard.html'">
+    <img src="assets/APTT_Logo.png" alt="APTT Logo" class="logo" onclick="window.location.href='dashboard.html'" />
     <button class="logout-btn" onclick="logout()">Logout</button>
   </header>
 
@@ -51,7 +56,7 @@
     <h2>Create New Exercise</h2>
     <form id="exercise-form">
       <label>Title</label>
-      <input type="text" name="title" required>
+      <input type="text" name="title" required />
 
       <label>Description</label>
       <textarea name="description" rows="4" required></textarea>
@@ -69,12 +74,20 @@
       </select>
 
       <label>Print-based Evaluation</label>
-      <input type="checkbox" name="print_based">
+      <input type="checkbox" name="print_based" />
 
       <label>Optimal Solution (Python)</label>
       <textarea name="optimal_solution" rows="6" required></textarea>
 
       <label>Test Cases</label>
+      <div class="hint">
+        Each test case must be a JSON object with <code>input</code> and <code>expected_output</code> keys.<br/>
+        Examples:<br/>
+        <code>{"input": [3, 5], "expected_output": 8}</code><br/>
+        <code>{"input": [[1, 2, 3]], "expected_output": 6}</code><br/>
+        <code>{"input": [], "expected_output": "Hello World"}</code> (for print-based)
+      </div>
+
       <div id="test-cases-container"></div>
       <button type="button" onclick="addTestCase()">+ Add Test Case</button>
 
@@ -95,14 +108,18 @@
       const container = document.getElementById("test-cases-container");
       const div = document.createElement("div");
       div.className = "test-case-box";
-      div.innerHTML = `
-        <input type="text" placeholder="Input" class="input-field" required>
-        <input type="text" placeholder="Expected Output" class="output-field" required>
-      `;
+
+      const textarea = document.createElement("textarea");
+      textarea.rows = 4;
+      textarea.placeholder = '{"input": [3, 5], "expected_output": 8}';
+      textarea.className = "testcase-json";
+      textarea.required = true;
+
+      div.appendChild(textarea);
       container.appendChild(div);
     }
 
-    // Load collections for selection
+    // Load collections
     fetch("http://localhost:8000/api/collections/", {
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -121,11 +138,23 @@
     document.getElementById("exercise-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const form = e.target;
+      const printBased = form.print_based.checked;
 
-      const testCases = Array.from(document.querySelectorAll(".test-case-box")).map(tc => ({
-        input: tc.querySelector(".input-field").value,
-        expected_output: tc.querySelector(".output-field").value
-      }));
+      const testCases = [];
+      for (const textarea of document.querySelectorAll(".testcase-json")) {
+        const value = textarea.value.trim();
+        try {
+          const obj = JSON.parse(value);
+          if (!("input" in obj) || !("expected_output" in obj)) {
+            alert("Each test case must have both 'input' and 'expected_output'");
+            return;
+          }
+          testCases.push(obj);
+        } catch (err) {
+          alert(`Invalid JSON format:\n${err.message}`);
+          return;
+        }
+      }
 
       const payload = {
         title: form.title.value,
@@ -133,7 +162,7 @@
         difficulty: form.difficulty.value,
         optimal_solution: form.optimal_solution.value,
         test_cases: testCases,
-        print_based: form.print_based.checked
+        print_based: printBased
       };
 
       const collectionId = form.collection.value;

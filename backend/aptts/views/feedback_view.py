@@ -27,16 +27,13 @@ class FeedbackViewSet(viewsets.ModelViewSet):
 
         exercise = get_object_or_404(Exercise, id=exercise_id)
 
-        # Try to reuse an existing global hint (shared hint)
         existing_hint = Feedback.objects.filter(exercise=exercise, type='start_hint', submission__isnull=True).first()
         if existing_hint:
             return Response({'content': existing_hint.content}, status=status.HTTP_200_OK)
 
-        # Generate with OpenAI
-        prompt = self.build_prompt('start_hint', request.user, exercise, None)
+        prompt = f"Give a student an idea of how to start solving this Python exercise:\n\n{exercise.description}"
         content = generate_openai_feedback(prompt)
 
-        # Save without a user and submission for reuse
         Feedback.objects.create(
             exercise=exercise,
             type='start_hint',
@@ -46,51 +43,77 @@ class FeedbackViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='middle_hint')
     def middle_hint(self, request):
-        return self._create_feedback(request, type='middle_hint')
-
-    @action(detail=False, methods=['post'], url_path='submission_help')
-    def submission_help(self, request):
-        return self._create_feedback(request, type='submission_help', require_submission=True)
-
-    @action(detail=False, methods=['post'], url_path='post_success_feedback')
-    def post_success_feedback(self, request):
-        return self._create_feedback(request, type='post_success_feedback', require_submission=True, require_passing=True)
-
-    def _create_feedback(self, request, type, require_submission=False, require_passing=False):
         exercise_id = request.data.get('exercise_id')
-        submission_id = request.data.get('submission_id') if require_submission else None
-
         if not exercise_id:
             return Response({'error': 'exercise_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         exercise = get_object_or_404(Exercise, id=exercise_id)
-        submission = None
 
-        if submission_id:
-            submission = get_object_or_404(Submission, id=submission_id, user=request.user)
-            if require_passing and submission.score < 1.0:
-                return Response({'error': 'Only passing submissions can receive this type of feedback'}, status=status.HTTP_400_BAD_REQUEST)
-
-        prompt = self.build_prompt(type, request.user, exercise, submission)
+        prompt = f"A student is stuck midway through this exercise:\n\n{exercise.description}\n\nGive a next-step hint."
         content = generate_openai_feedback(prompt)
 
         feedback = Feedback.objects.create(
             user=request.user,
             exercise=exercise,
-            submission=submission,
-            type=type,
+            type='middle_hint',
             content=content
         )
-        serializer = self.get_serializer(feedback)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response({'text': content}, status=status.HTTP_201_CREATED)
 
-    def build_prompt(self, type, user, exercise, submission):
-        if type == 'start_hint':
-            return f"Give a student an idea of how to start solving this Python exercise:\n\n{exercise.description}"
-        elif type == 'middle_hint':
-            return f"A student is stuck midway through this exercise:\n\n{exercise.description}\n\nGive a next-step hint."
-        elif type == 'submission_help' and submission:
-            return f"A student submitted this code for an exercise:\n\n{submission.code}\n\nIt failed.\nHelp the student identify likely issues and suggest improvements."
-        elif type == 'post_success_feedback' and submission:
-            return f"A student submitted this correct solution:\n\n{submission.code}\n\nGive them praise and a short improvement suggestion compared to this optimal one:\n\n{exercise.optimal_solution}"
-        return "Give helpful feedback."
+    @action(detail=False, methods=['post'], url_path='submission_help')
+    def submission_help(self, request):
+        print(request.data)
+        exercise_id = request.data.get('exercise_id')
+        submission_id = request.data.get('submission_id')
+        error = request.data.get('error')
+
+        if not exercise_id or not submission_id or not error:
+            return Response({'error': 'exercise_id, submission_id, and error are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        exercise = get_object_or_404(Exercise, id=exercise_id)
+        submission = get_object_or_404(Submission, id=submission_id)
+        
+        prompt = (
+            f"A student was tasked with coding a solution to:\n\n{exercise.description}\n\n"
+            f"The student submitted the following Python code for an exercise:\n\n{submission.code}\n\n"
+            f"It failed with this feedback or error:\n{error}\n\n"
+            f"Help the student understand what went wrong and suggest specific improvements."
+        )
+        content = generate_openai_feedback(prompt)
+
+        Feedback.objects.create(
+            user=request.user,
+            exercise=exercise,
+            type='submission_help',
+            content=content
+        )
+        return Response({'text': content}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path='post_success_feedback')
+    def post_success_feedback(self, request):
+        print(request)
+        exercise_id = request.data.get('exercise_id')
+        submission_id = request.data.get('submission_id')
+
+        if not exercise_id or not submission_id:
+            return Response({'error': 'exercise_id and submission_id are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        exercise = get_object_or_404(Exercise, id=exercise_id)
+        submission = get_object_or_404(Submission, id=submission_id)
+
+        prompt = (
+            f"A student was tasked with coding a solution to:\n\n{exercise.description}\n\n"
+            f"The student submitted the following correct Python solution:\n\n{submission.code}\n\n"
+            f"The optimal solution is:\n\n{exercise.optimal_solution}\n\n"
+            f"Praise the student and suggest improvements to make their code closer to the optimal one."
+        )
+        content = generate_openai_feedback(prompt)
+
+        Feedback.objects.create(
+            user=request.user,
+            exercise=exercise,
+            type='post_success_feedback',
+            content=content,
+            submission=submission
+        )
+        return Response({'text': content}, status=status.HTTP_201_CREATED)

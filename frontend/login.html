@@ -1,4 +1,3 @@
-<!-- login.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login - APTT</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <main class="auth-container">
@@ -15,10 +15,15 @@
       <input type="password" name="password" placeholder="Password" required />
       <button type="submit" class="btn">Login</button>
     </form>
+
     <div class="divider">or</div>
-    <button class="btn btn-google" id="google-login">Login with Google</button>
+    
+    <!-- Google button container -->
+    <div id="google-login" style="display: flex; justify-content: center; margin-top: 1rem;"></div>
+
     <p>Don’t have an account? <a href="register.html">Register here</a></p>
   </main>
+
   <script src="js/auth.js"></script>
 </body>
 </html>
